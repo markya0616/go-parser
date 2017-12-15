@@ -10,15 +10,44 @@ import (
 	"io/ioutil"
 )
 
-func ParseFile(path string) (*GoFile, error) {
-	source, err := ioutil.ReadFile(path)
+// ParseFiles parses files at the same time
+func ParseFiles(paths []string) ([]*GoFile, error) {
+	var files []*ast.File
+	var fsets []*token.FileSet
+	for _, p := range paths {
+		// File: A File node represents a Go source file: https://golang.org/pkg/go/ast/#File
+		fset := token.NewFileSet()
+		file, err := parser.ParseFile(fset, p, nil, 0)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, file)
+		fsets = append(fsets, fset)
+	}
+
+	var goFiles []*GoFile
+	for i, p := range paths {
+		goFile, err := parseFile(p, files[i], fsets[i], files)
+		if err != nil {
+			return nil, err
+		}
+		goFiles = append(goFiles, goFile)
+	}
+	return goFiles, nil
+}
+
+// ParseSingleFile parses a single file at the same time
+func ParseSingleFile(path string) (*GoFile, error) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
 	if err != nil {
 		return nil, err
 	}
+	return parseFile(path, file, fset, []*ast.File{file})
+}
 
-	// File: A File node represents a Go source file: https://golang.org/pkg/go/ast/#File
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, 0)
+func parseFile(path string, file *ast.File, fset *token.FileSet, files []*ast.File) (*GoFile, error) {
+	source, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +59,7 @@ func ParseFile(path string) (*GoFile, error) {
 		Uses:  make(map[*ast.Ident]types.Object),
 	}
 
-	_, err = conf.Check(file.Name.Name, fset, []*ast.File{file}, info)
+	_, err = conf.Check(file.Name.Name, fset, files, info)
 	if err != nil {
 		return nil, err
 	}
