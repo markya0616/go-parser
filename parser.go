@@ -3,7 +3,6 @@ package parser
 import (
 	"fmt"
 	"go/ast"
-	"go/importer"
 	"go/parser"
 	"go/token"
 	"go/types"
@@ -52,16 +51,10 @@ func parseFile(path string, file *ast.File, fset *token.FileSet, files []*ast.Fi
 		return nil, err
 	}
 
-	conf := types.Config{Importer: importer.Default()}
 	info := &types.Info{
 		Types: make(map[ast.Expr]types.TypeAndValue),
 		Defs:  make(map[*ast.Ident]types.Object),
 		Uses:  make(map[*ast.Ident]types.Object),
-	}
-
-	_, err = conf.Check(file.Name.Name, fset, files, info)
-	if err != nil {
-		return nil, err
 	}
 
 	goFile := &GoFile{
